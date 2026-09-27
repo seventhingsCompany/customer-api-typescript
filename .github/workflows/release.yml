@@ -1,0 +1,40 @@
+name: Release
+
+# Publishes to npm when a version tag (v1.2.3) is pushed. Uses npm trusted
+# publishing (OIDC): no npm token is stored, and provenance is attached
+# automatically. Requires a trusted publisher configured for this repo and
+# workflow in the package settings on npmjs.com.
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+  id-token: write # OIDC token for npm trusted publishing and provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      # Node 24 bundles npm 11, which supports trusted publishing (>= 11.5.1).
+      - run: npm ci
+      - name: Check tag matches package.json version
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run check:package
+      - run: npm publish --provenance --access public

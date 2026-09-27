@@ -387,6 +387,19 @@ npm run build          # dist/ (ESM + CJS + .d.ts)
 npm run check:package  # publint + are-the-types-wrong
 ```
 
+## Releasing
+
+Releases are published to npm by `.github/workflows/release.yml` using npm
+trusted publishing, which attaches provenance automatically. To release:
+
+```sh
+npm version 1.4.0 -m "chore: release %s"   # bumps package.json and creates tag v1.4.0
+git push --follow-tags
+```
+
+The workflow runs every check and then publishes. It fails if the tag does not
+match the version in `package.json`.
+
 ## License
 
 MIT
