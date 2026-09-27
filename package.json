@@ -1,6 +1,6 @@
 {
   "name": "@seventhingscompany/customer-api",
-  "version": "1.0.0",
+  "version": "1.4.0",
   "description": "TypeScript client for the seventhings Customer API",
   "license": "MIT",
   "author": "Henry Rausch",
