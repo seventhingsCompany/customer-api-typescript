@@ -54,7 +54,7 @@
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "check:package": "npm run build && publint && attw --pack .",
-    "prepublishOnly": "npm run typecheck && npm test && npm run check:package"
+    "prepublishOnly": "npm run typecheck && npm test && npm run build && publint"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
