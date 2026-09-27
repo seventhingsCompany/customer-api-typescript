@@ -8,7 +8,7 @@ type declarations.
 ## Installation
 
 ```sh
-npm install @seventhings/customer-api
+npm install @seventhingscompany/customer-api
 ```
 
 ## Quick Start
@@ -16,7 +16,7 @@ npm install @seventhings/customer-api
 ### Password Authentication
 
 ```ts
-import { SeventhingsClient } from '@seventhings/customer-api';
+import { SeventhingsClient } from '@seventhingscompany/customer-api';
 
 const client = await SeventhingsClient.withCredentials({
   instanceUrl: 'https://example.seventhings.com',
@@ -48,7 +48,7 @@ await client.auth.revokeTokens();
 ### SSO Authentication
 
 ```ts
-import { SSOAppTarget, SSOProviderName } from '@seventhings/customer-api';
+import { SSOAppTarget, SSOProviderName } from '@seventhingscompany/customer-api';
 
 await client.auth.loginSSO(SSOProviderName.Azure, authCode, 'your-client-id', SSOAppTarget.Web);
 ```
@@ -73,7 +73,7 @@ fields. The SDK returns them as plain records (`Record<string, unknown>`) keyed
 by field key. To read values without casts, wrap a record in `Fields`:
 
 ```ts
-import { Fields } from '@seventhings/customer-api';
+import { Fields } from '@seventhingscompany/customer-api';
 
 const uuid = await client.objects.create({ inventory_name: 'Laptop', barcode: 'LT-001' });
 const obj = new Fields(await client.objects.get(uuid));
@@ -135,7 +135,7 @@ const thumb = await client.files.getThumbnail(fileUuid);
 ### Tasks
 
 ```ts
-import { TaskStatus } from '@seventhings/customer-api';
+import { TaskStatus } from '@seventhingscompany/customer-api';
 
 const taskUuid = await client.tasks.create({
   title: 'Annual inspection',
@@ -200,7 +200,7 @@ const me = await client.users.getById(tok.userId);
 ### Field Definitions
 
 ```ts
-import { allowedValues, isMandatory } from '@seventhings/customer-api';
+import { allowedValues, isMandatory } from '@seventhingscompany/customer-api';
 
 const defs = await client.fieldDefinitions.list('asset'); // 'asset' | 'room' | 'person'
 defs.filter(isMandatory);
@@ -238,7 +238,7 @@ res.json();
 take `ListOptions`:
 
 ```ts
-import { Filter, SortDirection } from '@seventhings/customer-api';
+import { Filter, SortDirection } from '@seventhingscompany/customer-api';
 
 const items = await client.objects.list({
   page: 1,
@@ -294,7 +294,7 @@ and as `allItems()` on CircularityHub. It ignores `page`, uses `perPage`
 Responses with status 400 or higher throw an `ApiError`:
 
 ```ts
-import { ApiError, isNotFound } from '@seventhings/customer-api';
+import { ApiError, isNotFound } from '@seventhingscompany/customer-api';
 
 try {
   await client.objects.get(uuid);

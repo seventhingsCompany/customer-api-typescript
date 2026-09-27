@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TypeScript SDK for the seventhings Customer API (`@seventhings/customer-api`). It is a port of the Go SDK (`../customer-api-go`, the reference implementation) and the PHP SDK (`../customer-api-php`). It has zero runtime dependencies and uses only `fetch`, `FormData`, `Blob` and `AbortSignal`, so it must keep running on Node 22+, Bun, Deno, browsers and edge runtimes. Don't use Node-only APIs in `src/`; ESLint forbids `Buffer`, `process` and `require` there.
+TypeScript SDK for the seventhings Customer API (`@seventhingscompany/customer-api`). It is a port of the Go SDK (`../customer-api-go`, the reference implementation) and the PHP SDK (`../customer-api-php`). It has zero runtime dependencies and uses only `fetch`, `FormData`, `Blob` and `AbortSignal`, so it must keep running on Node 22+, Bun, Deno, browsers and edge runtimes. Don't use Node-only APIs in `src/`; ESLint forbids `Buffer`, `process` and `require` there.
 
 ## Commands
 
