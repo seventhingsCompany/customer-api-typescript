@@ -1,4 +1,5 @@
 import { ApiError, NetworkError } from './errors.js';
+import type { RateLimiter } from './rate-limit.js';
 
 /** Per-call options accepted by every SDK method. */
 export interface RequestOptions {
@@ -33,6 +34,7 @@ export interface HttpClientConfig {
   fetch?: typeof fetch | undefined;
   headers?: Record<string, string> | undefined;
   timeoutMs?: number | undefined;
+  rateLimiter?: RateLimiter | undefined;
 }
 
 export interface HttpRequest {
@@ -42,8 +44,11 @@ export interface HttpRequest {
   query?: string | undefined;
   /** JSON-serialized when set. Mutually exclusive with `form`. */
   body?: unknown;
-  /** Multipart body; the runtime sets the Content-Type boundary. */
-  form?: FormData | undefined;
+  /**
+   * Multipart (FormData; the runtime sets the Content-Type boundary) or
+   * URL-encoded (URLSearchParams) body.
+   */
+  form?: FormData | URLSearchParams | undefined;
   /** Accept header. Defaults to application/json; null omits the header. */
   accept?: string | null | undefined;
   /** Send the bearer token when one is set. Defaults to true. */
@@ -59,6 +64,7 @@ export class HttpClient {
   readonly #fetch: typeof fetch;
   readonly #headers: Record<string, string>;
   readonly #timeoutMs: number | undefined;
+  readonly #rateLimiter: RateLimiter | undefined;
 
   constructor(config: HttpClientConfig) {
     this.baseUrl = config.baseUrl;
@@ -67,6 +73,7 @@ export class HttpClient {
     this.#fetch = config.fetch ?? globalThis.fetch.bind(globalThis);
     this.#headers = config.headers ?? {};
     this.#timeoutMs = config.timeoutMs;
+    this.#rateLimiter = config.rateLimiter;
   }
 
   url(path: string, query?: string): string {
@@ -82,7 +89,10 @@ export class HttpClient {
     if (accept !== null) headers.set('Accept', accept);
 
     let body: BodyInit | undefined;
-    if (req.form !== undefined) {
+    if (req.form instanceof URLSearchParams) {
+      headers.set('Content-Type', 'application/x-www-form-urlencoded');
+      body = req.form.toString();
+    } else if (req.form !== undefined) {
       body = req.form;
     } else if (req.body !== undefined) {
       headers.set('Content-Type', 'application/json');
@@ -98,6 +108,9 @@ export class HttpClient {
     if (body !== undefined) init.body = body;
     const signal = combineSignals(options.signal, options.timeoutMs ?? this.#timeoutMs);
     if (signal) init.signal = signal;
+
+    // Waiting counts against the timeout; an abort while queued propagates unwrapped.
+    if (this.#rateLimiter) await this.#rateLimiter.wait(signal);
 
     let res: Response;
     let bytes: Uint8Array;

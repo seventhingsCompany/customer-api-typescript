@@ -132,30 +132,24 @@ describe.each([
   ['rooms', 'room'],
   ['locations', 'location'],
 ] as const)('%s', (service, singular) => {
-  it('list unwraps enveloped and flat items', async () => {
-    const { client, last } = setup(() =>
-      json({
-        items: [
-          { uuid: 'r1', fields: { name: 'A' } },
-          { uuid: 'r2', name: 'B' },
-        ],
-      }),
-    );
-    expect(await client[service].list({ page: 1 })).toEqual([
-      { uuid: 'r1', name: 'A' },
+  it('list returns flat field maps unchanged', async () => {
+    const items = [
+      { uuid: 'r1', fields: { name: 'A' } },
       { uuid: 'r2', name: 'B' },
-    ]);
+    ];
+    const { client, last } = setup(() => json({ items }));
+    expect(await client[service].list({ page: 1 })).toEqual(items);
     expect(last().path).toBe(`${singular}s`);
   });
 
-  it('get unwraps envelopes', async () => {
+  it('get does not unwrap envelopes', async () => {
     const { client, last } = setup(() => json({ uuid: 'r1', fields: { name: 'A' } }));
-    expect(await client[service].get('r1')).toEqual({ uuid: 'r1', name: 'A' });
+    expect(await client[service].get('r1')).toEqual({ uuid: 'r1', fields: { name: 'A' } });
     expect(last().path).toBe(`${singular}/r1`);
   });
 
-  it('patch returns the updated, unwrapped record', async () => {
-    const { client, last } = setup(() => json({ uuid: 'r1', fields: { name: 'New' } }));
+  it('patch returns the updated record', async () => {
+    const { client, last } = setup(() => json({ uuid: 'r1', name: 'New' }));
     expect(await client[service].patch('r1', { name: 'New' })).toEqual({
       uuid: 'r1',
       name: 'New',
@@ -182,8 +176,8 @@ describe.each([
     ]);
   });
 
-  it('all() yields unwrapped Fields', async () => {
-    const { client } = setup(() => json({ items: [{ uuid: 'r1', fields: { name: 'A' } }] }));
+  it('all() yields Fields', async () => {
+    const { client } = setup(() => json({ items: [{ uuid: 'r1', name: 'A' }] }));
     const names: string[] = [];
     for await (const r of client[service].all()) names.push(r.name);
     expect(names).toEqual(['A']);

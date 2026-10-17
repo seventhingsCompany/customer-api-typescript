@@ -1,6 +1,6 @@
 import { Fields } from '../fields.js';
 import type { SortOrder } from './users.js';
-import { arr, num, numOrNull, obj, str, strOrNull, type Wire } from './wire.js';
+import { arr, num, numOrNull, str, strOrNull, type Wire } from './wire.js';
 
 /**
  * A person. Person schemas are template-defined and vary per instance: the
@@ -47,31 +47,26 @@ export interface PersonListOptions {
   order?: SortOrder | undefined;
 }
 
-/**
- * @internal Accepts flat records and `{uuid, fields}` envelopes, and both the
- * legacy `person_uuid` and the newer `uuid` identifier.
- */
+/** @internal Persons are flat maps of template-defined field keys to values. */
 export function personFromApi(w: Wire): Person {
-  const inner = obj(w.fields);
-  const data: Wire = typeof w.uuid === 'string' && w.uuid !== '' && inner ? inner : w;
   return {
-    uuid: str(data.person_uuid) || str(w.uuid),
-    id: num(data.id),
-    userUuid: str(data.user_uuid),
-    email: str(data.email),
-    firstName: strOrNull(data.first_name),
-    lastName: strOrNull(data.last_name),
-    department: strOrNull(data.department),
-    picture: data.picture ?? null,
-    documents: data.documents ?? null,
-    updatedByUserId: numOrNull(data.updated_by_user_id),
-    updatedAt: strOrNull(data.updated_at),
-    createdAt: strOrNull(data.created_at),
-    importedByUserId: numOrNull(data.imported_by_user_id),
-    importedWithTemplateId: numOrNull(data.imported_with_template_id),
-    importedAt: strOrNull(data.imported_at),
-    createdOnImportWithTemplateId: numOrNull(data.created_on_import_with_template_id),
-    fields: new Fields(data),
+    uuid: str(w.person_uuid),
+    id: num(w.id),
+    userUuid: str(w.user_uuid),
+    email: str(w.email),
+    firstName: strOrNull(w.first_name),
+    lastName: strOrNull(w.last_name),
+    department: strOrNull(w.department),
+    picture: w.picture ?? null,
+    documents: w.documents ?? null,
+    updatedByUserId: numOrNull(w.updated_by_user_id),
+    updatedAt: strOrNull(w.updated_at),
+    createdAt: strOrNull(w.created_at),
+    importedByUserId: numOrNull(w.imported_by_user_id),
+    importedWithTemplateId: numOrNull(w.imported_with_template_id),
+    importedAt: strOrNull(w.imported_at),
+    createdOnImportWithTemplateId: numOrNull(w.created_on_import_with_template_id),
+    fields: new Fields(w),
   };
 }
 

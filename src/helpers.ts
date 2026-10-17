@@ -1,5 +1,4 @@
 import { SeventhingsError } from './errors.js';
-import type { ResourceRecord } from './fields.js';
 
 /** Page size used by the `all()` iterators when perPage is not set. */
 export const DEFAULT_PAGE_SIZE = 100;
@@ -17,8 +16,11 @@ export function uuidFromLocation(headers: Headers): string {
   return uuid;
 }
 
-/** File uploads return the new UUID in Location-UUID; older servers only send Location. */
-export function uuidFromFileUpload(headers: Headers): string {
+/**
+ * File uploads and catalog items return the new UUID in Location-UUID; fall
+ * back to Location when it is missing.
+ */
+export function uuidFromLocationUuid(headers: Headers): string {
   return headers.get('Location-UUID') || uuidFromLocation(headers);
 }
 
@@ -30,17 +32,6 @@ export function intFromLocationId(headers: Headers): number {
     throw new SeventhingsError(`invalid Location-Id header "${raw}"`);
   }
   return Number.parseInt(raw, 10);
-}
-
-/**
- * Keeps the flat field-map contract for room/location responses that use a
- * `{uuid, fields}` envelope. Legacy flat maps pass through unchanged.
- */
-export function unwrapResourceFields(resource: ResourceRecord): ResourceRecord {
-  const { fields, uuid } = resource;
-  if (!isRecord(fields) || typeof uuid !== 'string') return resource;
-  // Keep the envelope identity available without overwriting custom fields.
-  return 'uuid' in fields ? fields : { ...fields, uuid };
 }
 
 export function isRecord(v: unknown): v is Record<string, unknown> {

@@ -62,17 +62,50 @@ export class AuthService extends Service {
     return this.#postAuthToken(body, options);
   }
 
+  /**
+   * Exchanges an OAuth 2.1 authorization code using PKCE. `redirectUri` must
+   * match the URI used for authorization; `codeVerifier` is the original
+   * verifier behind the authorization request's code challenge.
+   */
+  async loginAuthorizationCode(
+    code: string,
+    codeVerifier: string,
+    redirectUri: string,
+    clientId: string,
+    options?: RequestOptions,
+  ): Promise<TokenResponse> {
+    this.http.session.clientId = clientId;
+    const form = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      code_verifier: codeVerifier,
+      redirect_uri: redirectUri,
+      client_id: clientId,
+    });
+    return this.#storeToken(
+      await this.http.json<Wire>(
+        { method: 'POST', path: AUTH_TOKEN_PATH, form, authenticated: false },
+        options,
+      ),
+    );
+  }
+
   /** Revokes the current access and refresh tokens. */
   async revokeTokens(options?: RequestOptions): Promise<void> {
     await this.http.send({ method: 'DELETE', path: AUTH_TOKEN_PATH }, options);
   }
 
   async #postAuthToken(body: Wire, options?: RequestOptions): Promise<TokenResponse> {
-    const w = await this.http.json<Wire>(
-      { method: 'POST', path: AUTH_TOKEN_PATH, body, authenticated: false },
-      options,
+    return this.#storeToken(
+      await this.http.json<Wire>(
+        { method: 'POST', path: AUTH_TOKEN_PATH, body, authenticated: false },
+        options,
+      ),
     );
-    const token = tokenFromApi(w);
+  }
+
+  #storeToken(w: Wire | undefined): TokenResponse {
+    const token = tokenFromApi(w ?? {});
     this.http.session.token = token.accessToken;
     return token;
   }

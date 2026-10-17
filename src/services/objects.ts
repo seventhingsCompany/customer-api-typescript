@@ -13,7 +13,7 @@ import { ResourceService } from './resources.js';
 /** Objects (assets). Fields are instance-defined; see `fieldDefinitions` for the `asset` template. */
 export class ObjectsService extends ResourceService {
   constructor(http: HttpClient) {
-    super(http, 'object', 'objects', false);
+    super(http, 'object', 'objects');
   }
 
   /** Looks up an object by its barcode value. */
