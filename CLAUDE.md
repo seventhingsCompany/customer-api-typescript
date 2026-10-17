@@ -22,17 +22,19 @@ npx tsx examples/demo/demo.ts         # live demo; needs SEVENTHINGS_* env vars
 ## Architecture
 
 - `src/client.ts`: `SeventhingsClient` exposes one service per area (`client.objects`, `client.tasks`, ...), plus `ping()` and the raw `request()` escape hatch.
-- `src/http.ts`: `HttpClient` (internal) builds URLs, sets headers (`Accept`, and `Content-Type` only when there is a JSON body), handles bearer auth, merges signal and timeout, and maps errors. It reads bodies fully into memory. Auth state lives in the shared `Session` object.
+- `src/http.ts`: `HttpClient` (internal) builds URLs, sets headers (`Accept`, and `Content-Type` only when there is a JSON body), handles bearer auth, merges signal and timeout, waits for the rate limiter, and maps errors. It reads bodies fully into memory. Auth state lives in the shared `Session` object.
 - `src/services/*.ts`: one class per area, all extending `Service`. `ResourceService` provides list, all, count, create, get and delete for the schema-free objects, rooms and locations.
 - `src/models/*.ts`: public camelCase types, `as const` enums, and internal `*FromApi` / `*ToApi` mappers that convert to and from the API's snake_case. The mappers use the zero-value helpers in `models/wire.ts`. `src/index.ts` exports types and enums explicitly and never exports the mappers.
 - `src/query.ts`: deep-object query encoding (`filter[f][op]=v`; `[]` suffix for like, not_like, in and nin).
-- `src/helpers.ts`: Location, Location-UUID and Location-Id parsing, room/location `{uuid, fields}` envelope unwrapping, and the `paginate` async generator.
+- `src/rate-limit.ts`: internal FIFO `RateLimiter` (default 200 requests/minute per client, evenly spaced, abort-aware). `ClientOptions.rateLimit` overrides it; `0` disables.
+- `src/helpers.ts`: Location, Location-UUID and Location-Id parsing, and the `paginate` async generator.
 
 ### Key Patterns
 
-- Create endpoints return the new UUID from the `Location` header. File upload prefers `Location-UUID`. CircularityHub returns an int from `Location-Id`.
+- Create endpoints return the new UUID from the `Location` header. File upload and catalog items prefer `Location-UUID`. CircularityHub returns an int from `Location-Id`.
 - Schema-free resources are returned as `ResourceRecord` (`Record<string, unknown>`). `all()` yields `Fields` wrappers.
-- Persons accept both the flat shape and the `{uuid, fields}` envelope, and both `person_uuid` and `uuid`. The full field map is kept in `person.fields`.
-- Status ≥ 400 throws `ApiError`. Transport failures throw `NetworkError`. Aborts and timeouts propagate unwrapped.
-- The unit-test helper `tests/unit/mock.ts` (`setup(handler)`) returns `{ client, calls, last }` with the recorded requests.
+- Persons, rooms and locations are decoded as the API's flat field maps; there is no envelope unwrapping. Person identity comes from `person_uuid`, and the full field map is kept in `person.fields`.
+- Rental create/update throw `RentalCaseRenterRequiredError` before HTTP when the renter is missing (the server 500s without one).
+- Status ≥ 400 throws `ApiError` (with `headers` and `retryAfter()`; no automatic retries). Transport failures throw `NetworkError`. Aborts and timeouts propagate unwrapped.
+- The unit-test helper `tests/unit/mock.ts` (`setup(handler)`) returns `{ client, calls, last }` with the recorded requests. It disables the rate limiter unless a test passes `rateLimit`.
 - When adding an endpoint, check the Go SDK first and keep behaviour in parity.

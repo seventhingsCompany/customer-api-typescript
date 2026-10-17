@@ -4,6 +4,7 @@ export type { ApiResponse, HttpMethod, RequestOptions } from './http.js';
 export {
   ApiError,
   NetworkError,
+  RentalCaseRenterRequiredError,
   SeventhingsError,
   isApiError,
   isConflict,
@@ -17,6 +18,7 @@ export {
 export { Fields } from './fields.js';
 export type { ResourceRecord } from './fields.js';
 export { DEFAULT_PAGE_SIZE } from './helpers.js';
+export { DEFAULT_REQUESTS_PER_MINUTE } from './rate-limit.js';
 
 export { Filter, FilterOperator, SortDirection } from './models/list.js';
 export type {
@@ -33,6 +35,7 @@ export type { TokenResponse } from './models/auth.js';
 export { SortOrder, UserSortBy } from './models/users.js';
 export type { User, UserListOptions, UserListResponse } from './models/users.js';
 export type { Person, PersonListOptions, PersonListResponse } from './models/persons.js';
+export type { CatalogItem, CatalogItemListResponse } from './models/catalog-items.js';
 export type { AttachmentResult, FileAttachment, FileInfo } from './models/files.js';
 export {
   TaskReferenceStatus,
@@ -97,6 +100,7 @@ export type {
 
 export type { AuthService } from './services/auth.js';
 export type { ObjectsService } from './services/objects.js';
+export type { CatalogItemsService } from './services/catalog-items.js';
 export type { RoomsService } from './services/rooms.js';
 export type { LocationsService } from './services/locations.js';
 export type { PersonsService } from './services/persons.js';

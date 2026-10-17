@@ -6,8 +6,10 @@ import {
   type Session,
 } from './http.js';
 import type { PingResponse } from './models/ping.js';
+import { DEFAULT_REQUESTS_PER_MINUTE, RateLimiter } from './rate-limit.js';
 import type { Wire } from './models/wire.js';
 import { AuthService } from './services/auth.js';
+import { CatalogItemsService } from './services/catalog-items.js';
 import { CircularityHubService } from './services/circularity-hub.js';
 import { FieldDefinitionsService } from './services/field-definitions.js';
 import { FilesService } from './services/files.js';
@@ -33,6 +35,16 @@ export interface ClientOptions {
   headers?: Record<string, string> | undefined;
   /** Default per-request timeout in milliseconds. No timeout by default. */
   timeoutMs?: number | undefined;
+  /**
+   * Request limit in requests per minute. Defaults to
+   * {@link DEFAULT_REQUESTS_PER_MINUTE} (200). Requests are evenly spaced,
+   * without bursts; the first one is sent immediately. Zero or less disables
+   * throttling. Every request of the client shares the limit, including
+   * authentication, uploads and downloads; separate clients do not. Waiting
+   * counts against the timeout and stops on abort. Concurrent requests are
+   * sent in call order; an aborted request does not consume a slot.
+   */
+  rateLimit?: number | undefined;
 }
 
 export interface CredentialsOptions extends ClientOptions {
@@ -66,6 +78,7 @@ export interface RawRequest {
 export class SeventhingsClient {
   readonly auth: AuthService;
   readonly objects: ObjectsService;
+  readonly catalogItems: CatalogItemsService;
   readonly rooms: RoomsService;
   readonly locations: LocationsService;
   readonly persons: PersonsService;
@@ -87,10 +100,12 @@ export class SeventhingsClient {
       fetch: options.fetch,
       headers: options.headers,
       timeoutMs: options.timeoutMs,
+      rateLimiter: RateLimiter.create(options.rateLimit ?? DEFAULT_REQUESTS_PER_MINUTE),
     });
     const http = this.#http;
     this.auth = new AuthService(http);
     this.objects = new ObjectsService(http);
+    this.catalogItems = new CatalogItemsService(http);
     this.rooms = new RoomsService(http);
     this.locations = new LocationsService(http);
     this.persons = new PersonsService(http);

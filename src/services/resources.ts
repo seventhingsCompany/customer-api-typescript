@@ -1,5 +1,5 @@
 import { Fields, type ResourceRecord } from '../fields.js';
-import { paginate, unwrapResourceFields, uuidFromLocation } from '../helpers.js';
+import { paginate, uuidFromLocation } from '../helpers.js';
 import type { HttpClient, RequestOptions } from '../http.js';
 import { type ListOptions } from '../models/list.js';
 import type { Wire } from '../models/wire.js';
@@ -16,13 +16,8 @@ export abstract class ResourceService extends Service {
     http: HttpClient,
     protected readonly singular: string,
     protected readonly plural: string,
-    private readonly unwrap: boolean,
   ) {
     super(http);
-  }
-
-  protected normalize(r: ResourceRecord): ResourceRecord {
-    return this.unwrap ? unwrapResourceFields(r) : r;
   }
 
   /** Lists one page. */
@@ -31,7 +26,7 @@ export abstract class ResourceService extends Service {
       { method: 'GET', path: this.plural, query: encodeListOptions(opts) },
       options,
     );
-    return ((w?.items ?? []) as ResourceRecord[]).map((r) => this.normalize(r));
+    return (w?.items ?? []) as ResourceRecord[];
   }
 
   /**
@@ -67,12 +62,11 @@ export abstract class ResourceService extends Service {
     return uuidFromLocation(res.headers);
   }
 
-  async get(uuid: string, options?: RequestOptions): Promise<ResourceRecord> {
-    const w = await this.http.json<ResourceRecord>(
+  get(uuid: string, options?: RequestOptions): Promise<ResourceRecord> {
+    return this.http.json<ResourceRecord>(
       { method: 'GET', path: `${this.singular}/${seg(uuid)}` },
       options,
     );
-    return this.normalize(w);
   }
 
   async delete(uuid: string, options?: RequestOptions): Promise<void> {

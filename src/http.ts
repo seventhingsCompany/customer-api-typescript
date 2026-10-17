@@ -1,4 +1,5 @@
 import { ApiError, NetworkError } from './errors.js';
+import type { RateLimiter } from './rate-limit.js';
 
 /** Per-call options accepted by every SDK method. */
 export interface RequestOptions {
@@ -33,6 +34,7 @@ export interface HttpClientConfig {
   fetch?: typeof fetch | undefined;
   headers?: Record<string, string> | undefined;
   timeoutMs?: number | undefined;
+  rateLimiter?: RateLimiter | undefined;
 }
 
 export interface HttpRequest {
@@ -59,6 +61,7 @@ export class HttpClient {
   readonly #fetch: typeof fetch;
   readonly #headers: Record<string, string>;
   readonly #timeoutMs: number | undefined;
+  readonly #rateLimiter: RateLimiter | undefined;
 
   constructor(config: HttpClientConfig) {
     this.baseUrl = config.baseUrl;
@@ -67,6 +70,7 @@ export class HttpClient {
     this.#fetch = config.fetch ?? globalThis.fetch.bind(globalThis);
     this.#headers = config.headers ?? {};
     this.#timeoutMs = config.timeoutMs;
+    this.#rateLimiter = config.rateLimiter;
   }
 
   url(path: string, query?: string): string {
@@ -98,6 +102,9 @@ export class HttpClient {
     if (body !== undefined) init.body = body;
     const signal = combineSignals(options.signal, options.timeoutMs ?? this.#timeoutMs);
     if (signal) init.signal = signal;
+
+    // Waiting counts against the timeout; an abort while queued propagates unwrapped.
+    if (this.#rateLimiter) await this.#rateLimiter.wait(signal);
 
     let res: Response;
     let bytes: Uint8Array;

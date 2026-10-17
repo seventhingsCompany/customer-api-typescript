@@ -42,6 +42,8 @@ export function setup(handler: Handler = () => ok(), options: Partial<ClientOpti
     instanceUrl: 'https://example.com',
     token: 'test-token',
     fetch: fetch as typeof globalThis.fetch,
+    // Unthrottled unless a test opts in; the limiter has its own tests.
+    rateLimit: 0,
     ...options,
   });
   const last = (): Recorded => {

@@ -55,30 +55,24 @@ describe('persons', () => {
     expect(p.fields.string('custom_badge')).toBe('X-1');
   });
 
-  it('accepts the {uuid, fields} envelope', async () => {
+  it('decodes the flat field map only', async () => {
     const { client } = setup(() =>
-      json({ uuid: 'p-2', fields: { id: 6, first_name: 'Grace', custom: true } }),
+      json({ uuid: 'p-2', fields: { id: 6, first_name: 'Grace' }, person_uuid: 'p-1' }),
     );
-    const p = await client.persons.get('p-2');
-    expect(p.uuid).toBe('p-2');
-    expect(p.id).toBe(6);
-    expect(p.firstName).toBe('Grace');
-    expect(p.fields.bool('custom')).toBe(true);
-    expect(p.fields.has('uuid')).toBe(false);
+    const p = await client.persons.get('p-1');
+    expect(p.uuid).toBe('p-1');
+    expect(p.id).toBe(0);
+    expect(p.firstName).toBeNull();
+    expect(p.fields.has('fields')).toBe(true);
   });
 
-  it('prefers person_uuid over uuid', async () => {
-    const { client } = setup(() => json({ uuid: 'new', person_uuid: 'legacy' }));
-    expect((await client.persons.get('x')).uuid).toBe('legacy');
-  });
-
-  it('falls back to uuid when person_uuid is missing', async () => {
+  it('ignores uuid without person_uuid', async () => {
     const { client } = setup(() => json({ uuid: 'new', email: 'e' }));
-    expect((await client.persons.get('x')).uuid).toBe('new');
+    expect((await client.persons.get('x')).uuid).toBe('');
   });
 
   it('tolerates mistyped identifiers', async () => {
-    const { client } = setup(() => json({ person_uuid: 123, uuid: false }));
+    const { client } = setup(() => json({ person_uuid: 123 }));
     expect((await client.persons.get('x')).uuid).toBe('');
   });
 

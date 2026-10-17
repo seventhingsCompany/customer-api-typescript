@@ -82,6 +82,10 @@ export interface CreateTask {
   /** User UUIDs. */
   assignees?: string[] | undefined;
   references?: TaskReferenceInput[] | undefined;
+  /**
+   * At most two reminders. Omitted reminders are not sent; pass `[]` to
+   * disable reminders. A `value` of 0 reminds on the deadline itself.
+   */
   reminders?: TimeInterval[] | undefined;
   recurringSchedule?: TimeInterval | null | undefined;
   comment?: string | undefined;
@@ -157,9 +161,9 @@ export function taskToApi(t: CreateTask): Wire {
     deadline: t.deadline ?? null,
     assignees: t.assignees ?? [],
     references: t.references ?? [],
-    reminders: t.reminders ?? [],
     recurring_schedule: t.recurringSchedule ?? null,
   };
+  if (t.reminders !== undefined) body.reminders = t.reminders;
   if (t.comment !== undefined) body.comment = t.comment;
   if (t.attachments !== undefined) body.attachments = t.attachments;
   if (t.notify !== undefined) body.notify = t.notify;

@@ -1,4 +1,5 @@
-import { uuidFromFileUpload } from '../helpers.js';
+import { SeventhingsError } from '../errors.js';
+import { uuidFromLocationUuid } from '../helpers.js';
 import type { RequestOptions } from '../http.js';
 import { fileFromApi, type FileInfo } from '../models/files.js';
 import type { Wire } from '../models/wire.js';
@@ -35,7 +36,7 @@ export class FilesService extends Service {
       { method: 'POST', path: 'file', form, accept: null },
       requestOptions,
     );
-    return uuidFromFileUpload(res.headers);
+    return uuidFromLocationUuid(res.headers);
   }
 
   /** Downloads the file's content. */
@@ -55,7 +56,36 @@ export class FilesService extends Service {
     );
     return res.body;
   }
+
+  /**
+   * Downloads a thumbnail fitted within width x height pixels, keeping the
+   * aspect ratio. Both dimensions must be integers between 1 and 2000. The API
+   * creates and caches each new size, and answers 422 once a file has reached
+   * its limit of stored sizes.
+   */
+  async getThumbnailWithSize(
+    uuid: string,
+    width: number,
+    height: number,
+    options?: RequestOptions,
+  ): Promise<Uint8Array> {
+    if (!validThumbnailSize(width) || !validThumbnailSize(height)) {
+      throw new SeventhingsError('thumbnail width and height must be between 1 and 2000');
+    }
+    const res = await this.http.send(
+      {
+        method: 'GET',
+        path: `file/${seg(uuid)}/thumbnail`,
+        query: `width=${width}&height=${height}`,
+        accept: null,
+      },
+      options,
+    );
+    return res.body;
+  }
 }
+
+const validThumbnailSize = (n: number): boolean => Number.isInteger(n) && n >= 1 && n <= 2000;
 
 async function toBlob(data: UploadData, contentType: string | undefined): Promise<Blob> {
   if (data instanceof Blob) {

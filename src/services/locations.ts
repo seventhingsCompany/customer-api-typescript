@@ -14,7 +14,7 @@ const locationHistoryEntry = historyEntryMapper('location_uuid', 'locationUuid')
 /** Locations. Fields are instance-defined. */
 export class LocationsService extends ResourceService {
   constructor(http: HttpClient) {
-    super(http, 'location', 'locations', true);
+    super(http, 'location', 'locations');
   }
 
   /**
@@ -32,7 +32,7 @@ export class LocationsService extends ResourceService {
     );
     const body = res.json<ResourceRecord | undefined>();
     if (!body || Object.keys(body).length === 0) return this.get(uuid, options);
-    return this.normalize(body);
+    return body;
   }
 
   /** Recorded changes of the location, newest first. */

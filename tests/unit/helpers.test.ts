@@ -3,8 +3,7 @@ import { SeventhingsError } from '../../src/index.js';
 import {
   intFromLocationId,
   paginate,
-  unwrapResourceFields,
-  uuidFromFileUpload,
+  uuidFromLocationUuid,
   uuidFromLocation,
 } from '../../src/helpers.js';
 
@@ -22,9 +21,11 @@ describe('uuidFromLocation', () => {
     expect(() => uuidFromLocation(h({ Location: '/' }))).toThrow(/empty path/);
   });
 
-  it('prefers Location-UUID for uploads', () => {
-    expect(uuidFromFileUpload(h({ 'Location-UUID': 'f-1', Location: '/file/other' }))).toBe('f-1');
-    expect(uuidFromFileUpload(h({ Location: '/file/f-2' }))).toBe('f-2');
+  it('prefers Location-UUID', () => {
+    expect(uuidFromLocationUuid(h({ 'Location-UUID': 'f-1', Location: '/file/other' }))).toBe(
+      'f-1',
+    );
+    expect(uuidFromLocationUuid(h({ Location: '/file/f-2' }))).toBe('f-2');
   });
 });
 
@@ -36,28 +37,6 @@ describe('intFromLocationId', () => {
     expect(() => intFromLocationId(h({}))).toThrow(/missing Location-Id/);
     expect(() => intFromLocationId(h({ 'Location-Id': 'abc' }))).toThrow(/invalid Location-Id/);
     expect(() => intFromLocationId(h({ 'Location-Id': '4.5' }))).toThrow(/invalid Location-Id/);
-  });
-});
-
-describe('unwrapResourceFields', () => {
-  it('passes flat maps through', () => {
-    const flat = { uuid: 'r', name: 'Room' };
-    expect(unwrapResourceFields(flat)).toBe(flat);
-  });
-  it('unwraps envelopes and copies the uuid', () => {
-    expect(unwrapResourceFields({ uuid: 'r', fields: { name: 'Room' } })).toEqual({
-      uuid: 'r',
-      name: 'Room',
-    });
-  });
-  it('does not overwrite an inner uuid', () => {
-    expect(unwrapResourceFields({ uuid: 'outer', fields: { uuid: 'inner' } })).toEqual({
-      uuid: 'inner',
-    });
-  });
-  it('requires both uuid and fields', () => {
-    const noUuid = { fields: { name: 'x' } };
-    expect(unwrapResourceFields(noUuid)).toBe(noUuid);
   });
 });
 

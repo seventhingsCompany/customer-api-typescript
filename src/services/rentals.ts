@@ -41,7 +41,10 @@ export class RentalsService extends Service {
     );
   }
 
-  /** Creates a rental case and returns its UUID. */
+  /**
+   * Creates a rental case and returns its UUID. A missing renter throws
+   * RentalCaseRenterRequiredError without sending a request.
+   */
   async create(input: CreateRentalCase, options?: RequestOptions): Promise<string> {
     const res = await this.http.send(
       { method: 'POST', path: `${BASE}/rental-case`, body: rentalCaseToApi(input) },
@@ -58,7 +61,11 @@ export class RentalsService extends Service {
     return rentalCaseFromApi(w ?? {});
   }
 
-  /** Replaces the rental case (PUT): send every field, not just the changed ones. */
+  /**
+   * Replaces the rental case (PUT): send the complete state, not just the
+   * changed fields; omitted values may be cleared. A missing renter throws
+   * RentalCaseRenterRequiredError without sending a request.
+   */
   async update(uuid: string, input: UpdateRentalCase, options?: RequestOptions): Promise<void> {
     await this.http.send(
       { method: 'PUT', path: `${BASE}/rental-case/${seg(uuid)}`, body: rentalCaseToApi(input) },

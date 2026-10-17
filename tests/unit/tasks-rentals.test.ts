@@ -77,9 +77,16 @@ describe('tasks', () => {
       deadline: null,
       assignees: [],
       references: [],
-      reminders: [],
       recurring_schedule: null,
     });
+  });
+
+  it('sends an explicit empty reminder list to disable reminders', async () => {
+    const { client, last } = setup(() => created('/task-management/task/t-9'));
+    await client.tasks.create({ title: 'T', reminders: [] });
+    expect(last().json()).toMatchObject({ reminders: [] });
+    await client.tasks.update('t-9', { title: 'T' });
+    expect(last().json()).not.toHaveProperty('reminders');
   });
 
   it('create sends every field', async () => {
@@ -194,6 +201,7 @@ describe('rentals', () => {
     const { client, calls } = setup(() => ok());
     await client.rentals.update('r-1', {
       title: 'x',
+      renter: { type: RenterType.Plain, value: 'Bob' },
       issueDate: 'a',
       dueDate: 'b',
       responsibleUserUuid: 'u',

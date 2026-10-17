@@ -14,7 +14,7 @@ const roomHistoryEntry = historyEntryMapper('room_uuid', 'roomUuid');
 /** Rooms. Fields are instance-defined; see `fieldDefinitions` for the `room` template. */
 export class RoomsService extends ResourceService {
   constructor(http: HttpClient) {
-    super(http, 'room', 'rooms', true);
+    super(http, 'room', 'rooms');
   }
 
   /**
@@ -32,7 +32,7 @@ export class RoomsService extends ResourceService {
     );
     const body = res.json<ResourceRecord | undefined>();
     if (!body || Object.keys(body).length === 0) return this.get(uuid, options);
-    return this.normalize(body);
+    return body;
   }
 
   /** Recorded changes of the room, newest first. */

@@ -55,7 +55,7 @@ await client.auth.loginSSO(SSOProviderName.Azure, authCode, 'your-client-id', SS
 
 ## Usage
 
-The client groups endpoints by area: `auth`, `objects`, `rooms`, `locations`,
+The client groups endpoints by area: `auth`, `objects`, `catalogItems`, `rooms`, `locations`,
 `persons`, `users`, `tasks`, `rentals`, `fieldDefinitions`, `files`, `reports`
 and `circularityHub`. Every method takes an optional final
 [`RequestOptions`](#cancellation--timeouts) argument.
@@ -129,7 +129,40 @@ await client.objects.removeFiles(uuid, [{ fieldKey: 'documents', fileUuid }]);
 
 const meta = await client.files.get(fileUuid);
 const bytes = await client.files.getData(fileUuid);
-const thumb = await client.files.getThumbnail(fileUuid);
+const thumb = await client.files.getThumbnail(fileUuid); // 150 x 100
+const large = await client.files.getThumbnailWithSize(fileUuid, 320, 240);
+```
+
+`getThumbnailWithSize` fits the image within the box, keeping its aspect ratio.
+Both dimensions must be integers from 1 to 2000. The API creates and caches each
+new size, and answers 422 once a file has stored its maximum number of sizes.
+The API has no endpoint for deleting files.
+
+### Product Catalog
+
+Catalog items are reusable master data for creating objects. Object field keys
+carry a `catalog_object_` prefix; catalog metadata (`id`, `created_at`, ...) has
+none. Requires the product catalog feature; otherwise calls fail with a 403.
+
+```ts
+import { Filter } from '@seventhingscompany/customer-api';
+
+const itemUuid = await client.catalogItems.create({ catalog_object_inventory_name: 'Laptop' });
+const item = await client.catalogItems.get(itemUuid);
+item.fields.string('catalog_object_inventory_name');
+
+// PUT replaces every field: missing fields are emptied. Objects created from the item are unchanged.
+await client.catalogItems.update(itemUuid, {
+  ...item.fields.data,
+  catalog_object_inventory_name: 'Laptop 14"',
+});
+
+const page = await client.catalogItems.list({
+  perPage: 10,
+  filters: [Filter.like('catalog_object_inventory_name', 'Laptop')],
+});
+for await (const i of client.catalogItems.all()) console.log(i.uuid);
+await client.catalogItems.delete(itemUuid);
 ```
 
 ### Tasks
@@ -142,14 +175,15 @@ const taskUuid = await client.tasks.create({
   deadline: '2026-12-31',
   assignees: [userUuid],
   references: [{ type: 'asset', uuid }],
-  reminders: [{ unit: 'days', value: 7 }],
+  reminders: [{ unit: 'days', value: 7 }], // optional; [] disables, value 0 = on the deadline
 });
 await client.tasks.updateStatus(taskUuid, TaskStatus.Closed);
 const open = await client.tasks.list({ status: TaskStatus.Open, assignee: userUuid });
 ```
 
 `tasks.update` and `rentals.update` are PUTs: send the complete record, not
-only the changed fields.
+only the changed fields. Omitted `reminders` are not sent; pass `[]` to disable
+them.
 
 ### Rental Cases
 
@@ -163,7 +197,30 @@ const rentalUuid = await client.rentals.create({
   dueDateReminder: { unit: 'days', value: 1 },
   responsibleUserUuid: userUuid,
 });
+
+// Timed rental: reserves 08:00-10:00 UTC; due time is exclusive.
+await client.rentals.create({
+  title: 'Projector',
+  renter: { type: 'user', value: userUuid },
+  references: [{ type: 'asset', uuid }],
+  isFullDay: false,
+  issueAt: '2026-01-10T08:00:00+00:00',
+  dueAt: '2026-01-10T10:00:00+00:00',
+  issueDate: '2026-01-10',
+  dueDate: '2026-01-10',
+  responsibleUserUuid: userUuid,
+});
 ```
+
+`isFullDay: true` reserves whole UTC days from `issueDate` to `dueDate`. If
+`isFullDay` is omitted, `issueAt`/`dueAt` decide: with both the case has times;
+without them a new case is full-day, and an update keeps the stored kind and
+moves its times to the given dates. Read rentals expose `isFullDay`, `issueAt`
+and `dueAt` (null for full-day cases).
+
+A renter is required: although the API description marks it optional, the
+server fails without one, so `create` and `update` throw
+`RentalCaseRenterRequiredError` before sending anything.
 
 If the rental module is not enabled on the instance, calls throw an `ApiError`
 whose `isFeatureInactive()` returns true.
@@ -175,6 +232,8 @@ const locationUuid = await client.locations.create({ name: 'HQ' });
 const roomUuid = await client.rooms.create({ name: 'Server room', number: 'B-12', building_id: 1 });
 const room = await client.rooms.patch(roomUuid, { name: 'Server room 2' }); // returns the updated room
 ```
+
+Rooms and locations are returned as the API's flat field maps.
 
 ### Persons and Users
 
@@ -189,7 +248,7 @@ const personUuid = await client.persons.create({
 });
 const person = await client.persons.get(personUuid);
 person.firstName; // typed common fields
-person.fields.string('badge_no'); // every field, including custom ones
+person.fields.string('badge_no'); // every field, including custom ones (flat map; uuid from person_uuid)
 await client.persons.patch(personUuid, { department: 'IT' });
 await client.persons.createUser({ filter: { email: { like: ['@example.com'] } } });
 
@@ -313,8 +372,23 @@ functions: `isNotFound`, `isUnauthorized`, `isForbidden`, `isConflict`,
 `isRateLimited`, `isServerError` and `isFeatureInactive`. A denied login is a 403
 whose `err.json()` is `{ detail: LoginDeniedReason }`.
 
+`err.headers` holds the response headers. `err.retryAfter()` parses a standard
+`Retry-After` header (seconds or HTTP date) into milliseconds, returning 0 for
+past dates and `undefined` when the header is missing, repeated or invalid. The
+SDK never retries on its own:
+
+```ts
+if (isRateLimited(err)) {
+  const waitMs = (err as ApiError).retryAfter() ?? 1000;
+  await new Promise((r) => setTimeout(r, waitMs));
+  // resend if appropriate
+}
+```
+
 Other errors:
 
+- `RentalCaseRenterRequiredError` is thrown before sending a rental create/update without a renter.
+- `SeventhingsError` is thrown for invalid thumbnail sizes before sending.
 - `NetworkError` is thrown when no response was received (DNS, connection or TLS failure). The original error is in `err.cause`.
 - Aborts and timeouts reject with the runtime's native `AbortError` / `TimeoutError`.
 
@@ -327,6 +401,23 @@ const client = new SeventhingsClient({ instanceUrl, token, timeoutMs: 30_000 });
 
 await client.objects.list(undefined, { signal: controller.signal });
 await client.reports.create(input, { timeoutMs: 120_000 }); // per-call override
+```
+
+Time spent waiting for the rate limiter counts against the timeout, and an
+abort while queued rejects without sending.
+
+## Rate Limiting
+
+Each client sends at most **200 requests per minute** by default
+(`DEFAULT_REQUESTS_PER_MINUTE`), evenly spaced (one every 300 ms) without
+bursts; the first request goes out immediately. Every request shares the limit,
+including authentication, uploads and downloads. Separate clients have separate
+limits. Concurrent calls are sent in call order, and an aborted call does not
+use up a slot.
+
+```ts
+new SeventhingsClient({ instanceUrl, token, rateLimit: 400 }); // 400 per minute
+new SeventhingsClient({ instanceUrl, token, rateLimit: 0 }); // no throttling
 ```
 
 ## Custom fetch and Headers
@@ -344,7 +435,7 @@ const client = new SeventhingsClient({
 
 - **No automatic token refresh.** Call `client.auth.refresh(refreshToken)` yourself before the access token expires.
 - **No automatic retry.** Add your own retry logic for transient failures.
-- **No rate limiting.** The client does not throttle requests.
+- **Client-side pacing only.** Requests are throttled per client (see [Rate Limiting](#rate-limiting)), but a 429 is not retried.
 - **CircularityHub uses integer IDs**; every other module uses UUID strings.
 - **Dates are strings** as returned by the API (`YYYY-MM-DD` or `YYYY-MM-DD HH:mm:ss`, UTC). Use `Fields.time()` to parse one.
 

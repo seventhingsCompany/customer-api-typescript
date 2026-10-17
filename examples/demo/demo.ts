@@ -4,17 +4,23 @@
  *
  *   SEVENTHINGS_BASE_URL=... SEVENTHINGS_USERNAME=... \
  *   SEVENTHINGS_PASSWORD=... SEVENTHINGS_CLIENT_ID=... npx tsx examples/demo/demo.ts
+ *
+ * Optional: SEVENTHINGS_RATE_LIMIT (requests per minute, 0 disables; default 200).
  */
 import {
   AssetTrackingTemplate,
   Fields,
   Filter,
+  DEFAULT_REQUESTS_PER_MINUTE,
   isFeatureInactive,
+  isForbidden,
   isNotFound,
+  RentalCaseRenterRequiredError,
   SeventhingsClient,
   SortDirection,
   SortOrder,
   TaskStatus,
+  type CreateRentalCase,
   type HistoryResponse,
   type ResourceRecord,
 } from '../../src/index.js';
@@ -53,6 +59,10 @@ async function expectGone(section: string, fetch: () => Promise<unknown>) {
   throw new Error(`[${section}] expected 404 after deletion`);
 }
 
+// A 64 x 48 solid-colour PNG for the thumbnail demo.
+const DEMO_PNG =
+  'iVBORw0KGgoAAAANSUhEUgAAAEAAAAAwCAIAAAAuKetIAAAAQ0lEQVR42u3PQQkAAAgEsItoMIMZywp+hcEKLNXzWgQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQErhbkWbEeNF4M9QAAAABJRU5ErkJggg==';
+
 async function main() {
   const baseUrl = requireEnv('SEVENTHINGS_BASE_URL');
   const username = requireEnv('SEVENTHINGS_USERNAME');
@@ -62,8 +72,9 @@ async function main() {
   const historyOpts = { page: 1, perPage: 5 };
 
   // --- Auth -----------------------------------------------------------------
-  section('Auth', 'Logging in…');
-  const c = new SeventhingsClient({ instanceUrl: baseUrl });
+  const rateLimit = Number(process.env.SEVENTHINGS_RATE_LIMIT ?? DEFAULT_REQUESTS_PER_MINUTE);
+  section('Auth', `Logging in (rate limit ${rateLimit > 0 ? `${rateLimit}/min` : 'off'})…`);
+  const c = new SeventhingsClient({ instanceUrl: baseUrl, rateLimit });
   const tok = await c.auth.login(username, password, clientId);
   log('Auth', `Logged in — user_id=${tok.userId}, token=${tok.accessToken.slice(0, 20)}…`);
 
@@ -176,6 +187,39 @@ async function main() {
   await c.objects.delete(hostUuid);
   log('Files', `Deleted temp object ${hostUuid}`);
 
+  const png = Uint8Array.from(atob(DEMO_PNG), (ch) => ch.charCodeAt(0));
+  const imageUuid = await c.files.upload('demo.png', png, { contentType: 'image/png' });
+  const thumb = await c.files.getThumbnailWithSize(imageUuid, 32, 24);
+  const cached = await c.files.getThumbnailWithSize(imageUuid, 32, 24);
+  log(
+    'Files',
+    `32x24 thumbnail of ${imageUuid}: ${thumb.byteLength} bytes (cached copy ${cached.byteLength} bytes)`,
+  );
+  log('Files', 'Uploaded files remain: the API has no file-delete endpoint');
+
+  // --- Product catalog -------------------------------------------------------
+  section('Catalog', 'Creating a catalog item…');
+  const catalogName = `SDK Demo Catalog ${ts}`;
+  try {
+    const itemUuid = await c.catalogItems.create({ catalog_object_inventory_name: catalogName });
+    log('Catalog', `Created catalog item ${itemUuid}`);
+    const item = await c.catalogItems.get(itemUuid);
+    await c.catalogItems.update(itemUuid, {
+      ...item.fields.data,
+      catalog_object_inventory_name: `${catalogName} (updated)`,
+    });
+    const page = await c.catalogItems.list({
+      perPage: 5,
+      filters: [Filter.eq('catalog_object_inventory_name', `${catalogName} (updated)`)],
+    });
+    log('Catalog', `PUT replaced fields; filter found ${page.items.length} of ${page.total}`);
+    await c.catalogItems.delete(itemUuid);
+    await expectGone('Catalog', () => c.catalogItems.get(itemUuid));
+  } catch (err) {
+    if (!isForbidden(err)) throw err;
+    log('Catalog', 'Skipping: product catalog feature or permission unavailable');
+  }
+
   // --- Tasks ----------------------------------------------------------------
   section('Tasks', 'Creating task…');
   const me = await c.users.getById(tok.userId);
@@ -192,12 +236,69 @@ async function main() {
   });
   log('Tasks', `Created task ${taskUuid} referencing object ${taskObjUuid}`);
 
+  const taskInput = {
+    title: 'SDK Demo Task',
+    deadline: `${new Date().getUTCFullYear() + 1}-12-31`,
+    assignees: [me.uuid],
+    references: [{ type: 'asset' as const, uuid: taskObjUuid }],
+  };
+  await c.tasks.update(taskUuid, { ...taskInput, reminders: [{ unit: 'days', value: 0 }] });
+  log(
+    'Tasks',
+    `Reminder on the deadline: ${JSON.stringify((await c.tasks.get(taskUuid)).reminders)}`,
+  );
+  await c.tasks.update(taskUuid, { ...taskInput, reminders: [] });
+  log('Tasks', `Reminders disabled: ${JSON.stringify((await c.tasks.get(taskUuid)).reminders)}`);
+
   await c.tasks.updateStatus(taskUuid, TaskStatus.Closed);
   log('Tasks', 'Updated task status to closed');
   printHistory('Tasks', await c.tasks.history(taskUuid, historyOpts));
 
   await c.tasks.delete(taskUuid);
   await expectGone('Tasks', () => c.tasks.get(taskUuid));
+
+  // --- Timed rentals ----------------------------------------------------------
+  section('Rentals', 'Creating a timed rental…');
+  const year = new Date().getUTCFullYear() + 1;
+  const rentalInput: CreateRentalCase = {
+    title: 'SDK Demo Timed Rental',
+    renter: { type: 'plain', value: 'SDK Demo' },
+    references: [{ type: 'asset', uuid: taskObjUuid }],
+    isFullDay: false,
+    issueAt: `${year}-03-01T10:00:00+02:00`,
+    dueAt: `${year}-03-01T12:00:00+02:00`,
+    issueDate: `${year}-03-01`,
+    dueDate: `${year}-03-01`,
+    responsibleUserUuid: me.uuid,
+  };
+  try {
+    await c.rentals.create({ ...rentalInput, renter: undefined } as unknown as CreateRentalCase);
+  } catch (err) {
+    if (!(err instanceof RentalCaseRenterRequiredError)) throw err;
+    log('Rentals', 'Missing renter rejected locally, before any request');
+  }
+  try {
+    const rentalUuid = await c.rentals.create(rentalInput);
+    const timed = await c.rentals.get(rentalUuid);
+    log('Rentals', `Created ${rentalUuid}: ${timed.issueAt} → ${timed.dueAt} (UTC)`);
+    await c.rentals.update(rentalUuid, {
+      ...rentalInput,
+      isFullDay: true,
+      issueAt: undefined,
+      dueAt: undefined,
+      dueDate: `${year}-03-02`,
+    });
+    const fullDay = await c.rentals.get(rentalUuid);
+    log(
+      'Rentals',
+      `Converted to full-day: isFullDay=${fullDay.isFullDay} ${fullDay.issueDate} → ${fullDay.dueDate}`,
+    );
+    await c.rentals.delete(rentalUuid);
+    await expectGone('Rentals', () => c.rentals.get(rentalUuid));
+  } catch (err) {
+    if (!isFeatureInactive(err)) throw err;
+    log('Rentals', 'Skipping: rental module not active');
+  }
   await c.objects.delete(taskObjUuid);
 
   // --- Persons --------------------------------------------------------------
