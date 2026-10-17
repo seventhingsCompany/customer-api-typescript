@@ -5,9 +5,7 @@
  *   SEVENTHINGS_BASE_URL=... SEVENTHINGS_USERNAME=... \
  *   SEVENTHINGS_PASSWORD=... SEVENTHINGS_CLIENT_ID=... npx tsx examples/demo/demo.ts
  *
- * Optional: SEVENTHINGS_RATE_LIMIT (requests per minute, 0 disables; default
- * 200) and SEVENTHINGS_AUTH_CODE + SEVENTHINGS_CODE_VERIFIER +
- * SEVENTHINGS_REDIRECT_URI to log in with an authorization code + PKCE.
+ * Optional: SEVENTHINGS_RATE_LIMIT (requests per minute, 0 disables; default 200).
  */
 import {
   AssetTrackingTemplate,
@@ -77,19 +75,8 @@ async function main() {
   const rateLimit = Number(process.env.SEVENTHINGS_RATE_LIMIT ?? DEFAULT_REQUESTS_PER_MINUTE);
   section('Auth', `Logging in (rate limit ${rateLimit > 0 ? `${rateLimit}/min` : 'off'})…`);
   const c = new SeventhingsClient({ instanceUrl: baseUrl, rateLimit });
-  const authCode = process.env.SEVENTHINGS_AUTH_CODE;
-  const tok = authCode
-    ? await c.auth.loginAuthorizationCode(
-        authCode,
-        requireEnv('SEVENTHINGS_CODE_VERIFIER'),
-        requireEnv('SEVENTHINGS_REDIRECT_URI'),
-        clientId,
-      )
-    : await c.auth.login(username, password, clientId);
-  log(
-    'Auth',
-    `Logged in via ${authCode ? 'PKCE' : 'password'} — user_id=${tok.userId}, token=${tok.accessToken.slice(0, 20)}…`,
-  );
+  const tok = await c.auth.login(username, password, clientId);
+  log('Auth', `Logged in — user_id=${tok.userId}, token=${tok.accessToken.slice(0, 20)}…`);
 
   // --- Objects --------------------------------------------------------------
   section('Objects', 'Listing objects…');

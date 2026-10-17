@@ -22,7 +22,7 @@ npx tsx examples/demo/demo.ts         # live demo; needs SEVENTHINGS_* env vars
 ## Architecture
 
 - `src/client.ts`: `SeventhingsClient` exposes one service per area (`client.objects`, `client.tasks`, ...), plus `ping()` and the raw `request()` escape hatch.
-- `src/http.ts`: `HttpClient` (internal) builds URLs, sets headers (`Accept`, and `Content-Type` only for JSON or URL-encoded bodies), handles bearer auth, merges signal and timeout, waits for the rate limiter, and maps errors. It reads bodies fully into memory. Auth state lives in the shared `Session` object.
+- `src/http.ts`: `HttpClient` (internal) builds URLs, sets headers (`Accept`, and `Content-Type` only when there is a JSON body), handles bearer auth, merges signal and timeout, waits for the rate limiter, and maps errors. It reads bodies fully into memory. Auth state lives in the shared `Session` object.
 - `src/services/*.ts`: one class per area, all extending `Service`. `ResourceService` provides list, all, count, create, get and delete for the schema-free objects, rooms and locations.
 - `src/models/*.ts`: public camelCase types, `as const` enums, and internal `*FromApi` / `*ToApi` mappers that convert to and from the API's snake_case. The mappers use the zero-value helpers in `models/wire.ts`. `src/index.ts` exports types and enums explicitly and never exports the mappers.
 - `src/query.ts`: deep-object query encoding (`filter[f][op]=v`; `[]` suffix for like, not_like, in and nin).

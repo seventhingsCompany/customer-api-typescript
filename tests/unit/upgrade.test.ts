@@ -77,40 +77,6 @@ describe('catalog items', () => {
   });
 });
 
-describe('auth.loginAuthorizationCode', () => {
-  it('posts a form-encoded PKCE exchange unauthenticated and stores the token', async () => {
-    const { client, last } = setup(() => json({ access_token: 'access', refresh_token: 'r' }));
-    const tok = await client.auth.loginAuthorizationCode(
-      'code',
-      'verifier',
-      'https://example.test/callback',
-      'client',
-    );
-    expect(tok.accessToken).toBe('access');
-    expect(client.token).toBe('access');
-    expect(client.clientId).toBe('client');
-    const req = last();
-    expect(req.method).toBe('POST');
-    expect(req.path).toBe('auth_token');
-    expect(req.headers.get('Authorization')).toBeNull();
-    expect(req.headers.get('Content-Type')).toBe('application/x-www-form-urlencoded');
-    expect(Object.fromEntries(new URLSearchParams(String(req.body)))).toEqual({
-      grant_type: 'authorization_code',
-      code: 'code',
-      code_verifier: 'verifier',
-      redirect_uri: 'https://example.test/callback',
-      client_id: 'client',
-    });
-  });
-
-  it('surfaces API errors', async () => {
-    const { client } = setup(() => error(400));
-    await expect(client.auth.loginAuthorizationCode('c', 'v', 'u', 'id')).rejects.toBeInstanceOf(
-      ApiError,
-    );
-  });
-});
-
 describe('files.getThumbnailWithSize', () => {
   it('requests the size', async () => {
     const { client, last } = setup(() => new Response('image'));
@@ -286,11 +252,10 @@ describe('rate limiting', () => {
       await client.files.getData('f');
       await client.files.upload('a.txt', new Uint8Array([1]));
       await client.auth.login('u', 'p', 'c');
-      await client.auth.loginAuthorizationCode('c', 'v', 'u', 'c');
     })();
     await vi.runAllTimersAsync();
     await run;
-    expect(sent).toEqual([0, 300, 600, 900, 1200]);
+    expect(sent).toEqual([0, 300, 600, 900]);
   });
 
   it.each([

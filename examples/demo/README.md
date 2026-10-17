@@ -21,5 +21,3 @@ Required variables: `SEVENTHINGS_BASE_URL`, `SEVENTHINGS_USERNAME`,
 Optional:
 
 - `SEVENTHINGS_RATE_LIMIT`: requests per minute (default 200, `0` disables).
-- `SEVENTHINGS_AUTH_CODE`, `SEVENTHINGS_CODE_VERIFIER`, `SEVENTHINGS_REDIRECT_URI`:
-  log in with a fresh, single-use authorization code + PKCE instead of the password.

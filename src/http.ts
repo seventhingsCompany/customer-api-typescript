@@ -44,11 +44,8 @@ export interface HttpRequest {
   query?: string | undefined;
   /** JSON-serialized when set. Mutually exclusive with `form`. */
   body?: unknown;
-  /**
-   * Multipart (FormData; the runtime sets the Content-Type boundary) or
-   * URL-encoded (URLSearchParams) body.
-   */
-  form?: FormData | URLSearchParams | undefined;
+  /** Multipart body; the runtime sets the Content-Type boundary. */
+  form?: FormData | undefined;
   /** Accept header. Defaults to application/json; null omits the header. */
   accept?: string | null | undefined;
   /** Send the bearer token when one is set. Defaults to true. */
@@ -89,10 +86,7 @@ export class HttpClient {
     if (accept !== null) headers.set('Accept', accept);
 
     let body: BodyInit | undefined;
-    if (req.form instanceof URLSearchParams) {
-      headers.set('Content-Type', 'application/x-www-form-urlencoded');
-      body = req.form.toString();
-    } else if (req.form !== undefined) {
+    if (req.form !== undefined) {
       body = req.form;
     } else if (req.body !== undefined) {
       headers.set('Content-Type', 'application/json');

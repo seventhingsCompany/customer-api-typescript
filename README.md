@@ -53,16 +53,6 @@ import { SSOAppTarget, SSOProviderName } from '@seventhingscompany/customer-api'
 await client.auth.loginSSO(SSOProviderName.Azure, authCode, 'your-client-id', SSOAppTarget.Web);
 ```
 
-### Authorization Code + PKCE
-
-```ts
-// After your OAuth 2.1 authorization redirect returns ?code=...
-await client.auth.loginAuthorizationCode(code, codeVerifier, redirectUri, 'your-client-id');
-```
-
-`redirectUri` must match the one used for authorization, and `codeVerifier` is
-the original verifier behind the code challenge. Codes are single-use.
-
 ## Usage
 
 The client groups endpoints by area: `auth`, `objects`, `catalogItems`, `rooms`, `locations`,
