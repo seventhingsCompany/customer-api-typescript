@@ -34,9 +34,9 @@ export class RateLimiter {
     if (this.#queue[0] === waiter) wake();
     try {
       await abortable(ready, signal);
-      const delay = this.#next - Date.now();
+      const delay = this.#next - performance.now();
       if (delay > 0) await sleep(delay, signal);
-      this.#next = Date.now() + this.#intervalMs;
+      this.#next = performance.now() + this.#intervalMs;
     } finally {
       const wasHead = this.#queue[0] === waiter;
       this.#queue.splice(this.#queue.indexOf(waiter), 1);

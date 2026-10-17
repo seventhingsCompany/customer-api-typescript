@@ -236,7 +236,7 @@ describe('rate limiting', () => {
     const sent: number[] = [];
     const { client, calls } = setup(
       () => {
-        sent.push(Date.now());
+        sent.push(performance.now());
         return json({ access_token: 't' }, { headers: { Location: '/file/f' } });
       },
       rateLimit === undefined ? { rateLimit: undefined } : { rateLimit },
@@ -317,6 +317,16 @@ describe('rate limiting', () => {
     await vi.advanceTimersByTimeAsync(100);
     expect(((await p) as Error).name).toBe('TimeoutError');
     expect(calls).toHaveLength(1);
+  });
+
+  it('is not affected by wall-clock jumps', async () => {
+    const { client, sent } = timed(60);
+    await client.ping();
+    vi.setSystemTime(Date.now() - 3_600_000); // clock set back an hour
+    const next = client.ping();
+    await vi.advanceTimersByTimeAsync(1000);
+    await next;
+    expect(sent).toEqual([0, 1000]);
   });
 
   it('does not share a limit between clients', async () => {
